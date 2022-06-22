@@ -1,17 +1,29 @@
 mg->
-    int @a = 3;
+    int @a = 3.0;
     real @b;
     bool @t = true;
-    in(@f);
-    if (@a > 3) goto {
-        @b = 5;
-    }
     do {
         @a = (@a ^ 2) - 5;
         @b = @b + @a - (@a * (0.e+3 + 0.34/2));
-        if (@a <= 100) goto {
+        if (@a <= 100) goto !sii
+        !sii{
             out(@b);
             @t = false;
         }
-    } while @t
+    } while @t == true
+    @s = 4;
+    in(@f);
+    if (@a > 3) goto !go
+    do {
+        !sii{
+            out(@b);
+            @t = false;
+        }
+        @a = (@a ^ 2) - 5;
+        @b = @b + @a - (@a * (0.e+3 + 0.34/2));
+        if (@a <= 100) goto !sii
+    } while @t == true
+    !go{
+        @b = 5;
+    }
 <-emg

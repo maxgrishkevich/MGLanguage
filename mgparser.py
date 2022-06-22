@@ -1,5 +1,6 @@
 from mglexer import lexer
-from mglexer import symb_table
+from mglexer import symb_table, label_table, var_table, const_table
+from mglexer import print_tables, print_id_table, print_label_table, print_symb_table, print_const_table
 
 lexer()
 
@@ -9,17 +10,23 @@ len_symb_table = len(symb_table)
 
 postfix_code = []
 
-view_translation = True
-view_syntax = True
+view_translation = False
+view_syntax = False
 
 
 def parser():
-    print('\n' + '=' * 60 + '\n')
+    if view_translation:
+        print('\n' + '=' * 60 + '\n')
     try:
         parse_token('mg->', 'keyword', '')
         parse_statement_list()
-        print(postfix_code)
-        print('\nMGParser: Parsing & translation are ended successful')
+
+        if view_translation:
+            print_tables('All')
+            print('\nPostfix code of the program: \n{0}'.format(postfix_code))
+        # print("\033[36m{}".format(""), end="")
+        print('MGParser: Parsing & translation are ended successfully\n')
+        # print("\033[0m{}".format(""), end="")
         return True
     except SystemExit as e:
         print('\nMGParser: Crash program with code {0}'.format(e))
@@ -46,7 +53,6 @@ def parse_statement(spec_instr=''):
         return False
 
     if token == 'id':
-        parse_id()
         parse_assign()
         parse_token(';', 'punct', '')
         return True
@@ -65,13 +71,16 @@ def parse_statement(spec_instr=''):
     elif (lexeme, token) == ('if', 'keyword'):
         parse_if()
         return True
+    elif token == 'label':
+        parse_label_desc()
+        return True
     elif (lexeme, token) == ('do', 'keyword'):
         parse_do_while()
         return True
     elif (lexeme, token) == ('<-emg', 'keyword'):
         parse_token(lexeme, token, '')
         return True
-    elif spec_instr == 'IF':
+    elif spec_instr == 'LABEL':
         if (lexeme, token) == ('}', 'brackets_op'):
             return False
         else:
@@ -98,6 +107,7 @@ def parse_id_types():
 
     if lexeme in ['int', 'real', 'bool'] and token == 'keyword':
         num_row += 1
+        postfix_code.append((lexeme, token))
         parse_id()
         _, lexeme, token = get_symb()
         if lexeme == '=' and token == 'assign_op':
@@ -121,6 +131,7 @@ def parse_in():
         parse_id_list()
         parse_token(')', 'brackets_op', '\t' * 5)
         parse_token(';', 'punct', '\t' * 5)
+        postfix_code.append(('IN', 'in'))
         return True
     else:
         return False
@@ -139,6 +150,7 @@ def parse_out():
         parse_expression_list()
         parse_token(')', 'brackets_op', '\t' * 5)
         parse_token(';', 'punct', '\t' * 5)
+        postfix_code.append(('OUT', 'out'))
         return True
     else:
         return False
@@ -161,10 +173,41 @@ def parse_if():
             parse_token('goto', 'keyword', '\t' * 5)
         else:
             return False
-        parse_token('{', 'brackets_op', '\t' * 5)
-        parse_statement_list('IF')
-        parse_token('}', 'brackets_op', '\t' * 5)
+        _, lexeme, token = get_symb()
+        if token == 'label':
+            parse_label(lexeme, token)
+
+        else:
+            return False
+        # parse_token('{', 'brackets_op', '\t' * 5)
+        # parse_statement_list('IF')
+        # parse_token('}', 'brackets_op', '\t' * 5)
         return True
+    else:
+        return False
+
+
+def parse_label_desc():
+    global num_row, label_table
+
+    if view_syntax:
+        print('\t' * 4 + 'parse_label_desc():')
+
+    _, lexeme, token = get_symb()
+    if token == 'label':
+        num_row += 1
+        if lexeme in label_table:
+
+            parse_token('{', 'brackets_op', '\t' * 5)
+            postfix_code.append((lexeme, token))
+            postfix_code.append(('JF', 'jf'))
+            parse_statement_list('LABEL')
+            parse_token('}', 'brackets_op', '\t' * 5)
+
+            label_table[lexeme] = len(postfix_code)
+            postfix_code.append((lexeme, token))
+            postfix_code.append((':', 'colon'))
+            return True
     else:
         return False
 
@@ -179,17 +222,47 @@ def parse_do_while():
     if (lexeme, token) == ('do', 'keyword'):
         num_row += 1
         parse_token('{', 'brackets_op', '\t' * 5)
+        m1 = create_label()
+        postfix_code.append(m1)  # Трансляція
+        postfix_code.append(('JF', 'jf'))
         parse_statement_list('DO')
         parse_token('}', 'brackets_op', '\t' * 5)
+        set_label_value(m1)  # в табл. міток
+        postfix_code.append(m1)  # Трансляція
+        postfix_code.append((':', 'colon'))
+
         _, lexeme, token = get_symb()
+
         if (lexeme, token) == ('while', 'keyword'):
             parse_token('while', 'keyword', '\t' * 5)
         else:
             return False
+        parse_token('(', 'brackets_op', '\t' * 5)
         parse_bool_expression()
+        parse_token(')', 'brackets_op', '\t' * 5)
         return True
     else:
         return False
+
+
+def set_label_value(lbl):
+    global label_table
+    lex, _tok = lbl
+    label_table[lex] = len(postfix_code)
+    return True
+
+
+def create_label():
+    global label_table
+    nmb = len(label_table) + 1
+    lexeme = "m" + str(nmb)
+    val = label_table.get(lexeme)
+    if val is None:
+        label_table[lexeme] = 'val_undef'
+        tok = 'label'  # # #
+    else:
+        fail_parse('конфлікт міток')
+    return (lexeme, tok)
 
 
 def parse_expression_list():
@@ -203,6 +276,7 @@ def parse_expression_list():
         if lexeme == ')':
             break
         parse_token(',', 'punct', '\t\t\t\t\t')
+        postfix_code.append(('OUT', 'out'))
     return True
 
 
@@ -246,16 +320,26 @@ def parse_bool_expression():
         num_line, lexeme, token = get_symb()
     else:
         return True
+
+    num_row += 1
+    parse_expression()
+
     if token in 'rel_op':
-        num_row += 1
+        postfix_code.append((lexeme, token))
         if view_syntax:
             print('\t' * 5 + '[{0}]: {1}'.format(num_line, (lexeme, token)))
-        parse_expression()
+
 
     elif token in 'keyword':
         if view_syntax:
             print('\t' * 5 + '[{0}]: {1}'.format(num_line, (lexeme, token)))
         return True
+
+    # elif (lexeme, token) == (';', 'punct'):
+    #     if view_syntax:
+    #         print('\t' * 5 + '[{0}]: {1}'.format(num_line, (lexeme, token)))
+    #     parse_token(';', 'punct', '')
+    #     return True
 
     else:
         fail_parse('bool expression error', (num_line, lexeme, token, '==, #, <=, >=, <, >'))
@@ -267,10 +351,9 @@ def parse_assign():
 
     if view_syntax:
         print('\t' * 4 + 'parseAssign():')
-    num_row -= 1
     num_line, lexeme, token = get_symb()
     postfix_code.append((lexeme, token))
-    num_row += 1
+
 
     if view_translation:
         print_config(lexeme, num_row)
@@ -278,12 +361,12 @@ def parse_assign():
     if view_syntax:
         print('\t' * 5 + '[{0}]: {1}'.format(num_line, (lexeme, token)))
 
+    num_row += 1
+
     if parse_token('=', 'assign_op', '\t\t\t\t\t'):
+        num_row_copy = num_row - 1
         _, lexeme, token = get_symb()
-        if lexeme in ('true', 'false') and token == 'boolval':
-            parse_token(lexeme, token, '')
-        else:
-            parse_expression()
+        parse_expression()
         postfix_code.append(('=', 'assign_op'))
         if view_translation:
             print_config('=', num_row)
@@ -304,6 +387,7 @@ def parse_id_list():
 
         if lexeme == ',':
             parse_token(',', 'punct', '\t\t\t\t\t')
+            postfix_code.append(('IN', 'in'))
         else:
             return True
     num_line, lexeme, token = get_symb()
@@ -322,9 +406,25 @@ def parse_id():
 
     if token == 'id':
         num_row += 1
+        postfix_code.append((lexeme, token))
 
         if view_syntax:
             print('\t' * 6 + 'parseToken():\n' + '\t' * 6 + '[{0}]: {1}'.format(num_line, (lexeme, token)))
+        return True
+    else:
+        return False
+
+
+def parse_label(curr_lexeme, curr_token):
+    if view_syntax:
+        print('\t' * 6 + 'parse_id():')
+    global num_row
+
+    if curr_token == 'label':
+        num_row += 1
+
+        if view_syntax:
+            print('\t' * 6 + 'parseToken():\n' + '\t' * 6 + '[{0}]: {1}'.format(num_row-1, (curr_lexeme, curr_token)))
         return True
     else:
         return False
@@ -377,7 +477,7 @@ def parse_factor():
     if view_syntax:
         print('\t' * 7 + '[{0}]: {1}'.format(num_line, (lexeme, token)))
 
-    if token in ('intnum', 'realnum', 'id'):
+    if token in ('intnum', 'realnum', 'id', 'boolval'):
         postfix_code.append((lexeme, token))
 
         if view_translation:
@@ -441,7 +541,8 @@ def fail_parse(string, ftuple):
     elif string == 'instruction mismatch':
         (num_line, lexeme, token, expected) = ftuple
         print(
-            '\nMGParser ERROR: \n\t[{0}]: Unexpected lexeme (\'{1}\', {2}).'.format(num_line, lexeme, token, expected))
+            '\nMGParser ERROR: \n\t[{0}]: Unexpected lexeme (\'{1}\', {2}).'
+            '\n\tTrying to parse label.'.format(num_line, lexeme, token, expected))
         exit(108)
 
     elif string == 'expression->factor error':

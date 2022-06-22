@@ -1,33 +1,92 @@
 from mglexer import symb_table, var_table, const_table, label_table, source_code
+from mglexer import print_tables, print_id_table, print_label_table, print_symb_table, print_const_table
 from mgparser import parser, postfix_code
 from mgstack import Stack
+import re
 
 stack = Stack()
-stack.print()
-to_view = True
+# stack.print()
+to_view = False
+command_track = []
+next_instr = 0
 
 
 def interpreter():
     if parser():
-        global stack, postfix_code
+        global stack, postfix_code, command_track, next_instr
+        if to_view:
+            print('\n' + '=' * 60 + '\n')
 
+        # print(postfix_code)
+        cycles_numb = 0
+        instr_num = 0
         max_numb = len(postfix_code)
         try:
-            for i in range(0, max_numb):
-                lex, tok = postfix_code.pop(0)
-                if tok in ('intnum', 'realnum', 'id'):
+            # for i in range(0, max_numb):
+            while instr_num < max_numb:
+                cycles_numb += 1
+                lex, tok = postfix_code[instr_num]
+                command_track.append((instr_num, lex, tok))
+
+                if tok in ('intnum', 'realnum', 'id', 'label'):
                     stack.push((lex, tok))
+                    next_instr = instr_num + 1
+                elif tok in ('jump', 'jf', 'colon'):
+                    next_instr = do_jumps(tok)
                 else:
                     do_it(lex, tok)
+                    next_instr = instr_num + 1
 
                 if to_view:
-                    print_config(i + 1, lex, tok, max_numb)
+                    print_config(instr_num, lex, tok, max_numb)
+                instr_num = next_instr
 
-            print('\nMGInterpreter: Interpreting ended successfully!')
-            return True
+            if to_view:
+                print_tables('All')
+            # print("\033[36m{}".format(""), end="")
+            print('\n\nMGInterpreter: Interpreting ended successfully!')
+            # print("\033[0m{}".format(""), end="")
+            return command_track
         except SystemExit as e:
             print('\nMGInterpreter: Crash program with code {0}'.format(e))
         return True
+
+
+def do_jumps(tok):
+    if tok == 'jump':
+        next = processing_jump()
+    elif tok == 'colon':
+        next = processing_colon()
+    elif tok == 'jf':
+        next = processing_jf()
+    return next
+
+
+def processing_jump():
+    global stack, label_table
+    (lex_label, tok_label) = stack.pop()
+    val = label_table[lex_label]
+    return val
+
+
+def processing_colon():
+    global stack, next_instr
+    stack.pop()
+    return next_instr + 1
+
+
+def processing_jf():
+    global stack, label_table, next_instr
+    (lex_label, tok_label) = stack.pop()
+    try:
+        (lex_bool, tok_bool) = stack.pop()
+    except TypeError:
+        fail('non recognized label', (lex_label, tok_label))
+    if lex_bool == 'False':
+        val = label_table[lex_label]
+        return val
+    else:
+        return next_instr + 1
 
 
 def print_config(step, lex, tok, maxN):
@@ -61,10 +120,38 @@ def do_it(lex, tok):
     elif lex == 'NEG':
         (lexx, tokk) = stack.pop()
         processingNEG((lexx, tokk))
-    elif tok in ('add_op', 'mult_op', 'degree_op'):
+    elif tok in ('add_op', 'mult_op', 'degree_op', 'rel_op'):
         (lexR, tokR) = stack.pop()
         (lexL, tokL) = stack.pop()
         proc_add_mult_deg((lexL, tokL), lex, (lexR, tokR))
+    elif tok == 'out':
+        (lex, tok) = stack.pop()
+
+        if tok == 'id':
+            if var_table[lex][1] == 'type_undef':
+                fail('non initialized variable', (lex, var_table[lex]))
+            else:
+                val = var_table[lex][2]
+                print(str(val), end="")
+        else:
+            print(str(const_table[lex][2]), end="")
+
+    elif tok == 'in':
+        (lex, tok) = stack.pop()
+
+        inp = input()
+
+        if inp.isdigit():
+            inpType = 'integer'
+            inpVal = int(inp)
+        elif re.match('^[-+]?([0-9]+[.,])?[0-9]+(?:[e][-+]?[0-9]+)?$', inp):
+            inpType = 'real'
+            inpVal = float(inp)
+        else:
+            fail('wrong type', (lex, type(inp)))
+
+        var_table[lex] = (var_table[lex][0], inpType, inpVal)
+
     return True
 
 
@@ -126,10 +213,30 @@ def get_value(vtL, lex, vtR):
         value = valL / valR
     elif lex == '^':
         value = pow(valL, valR)
+    elif lex == '<':
+        value = valL < valR
+    elif lex == '<=':
+        value = valL <= valR
+    elif lex == '>':
+        value = valL > valR
+    elif lex == '>=':
+        value = valL >= valR
+    elif lex == '==':
+        value = valL == valR
+    elif lex == '#':
+        value = valL != valR
     else:
         pass
-    stack.push((str(value), tokL))
-    to_const_table(value, tokL)
+
+    if isinstance(value, float):
+        stack.push((str(value), "realnum"))
+        to_const_table(value, "realnum")
+    elif isinstance(value, bool):
+        stack.push((str(value), "boolean"))
+        to_const_table(value, "boolean")
+    elif isinstance(value, int):
+        stack.push((str(value), "intnum"))
+        to_const_table(value, "intnum")
 
 
 def to_const_table(val, tok):
@@ -149,66 +256,16 @@ def fail(str, tuple):
         ((lexL, tokL), lex, (lexR, tokR)) = tuple
         print('\nMGInterpreter ERROR: \n\t Dividing by zero in {0} {1} {2}. '.format((lexL, tokL), lex, (lexR, tokR)))
         exit(113)
-
-
-def print_tables(table):
-    if table == "Symbol":
-        print_symb_table()
-    elif table == "Id":
-        print_var_table()
-    elif table == "Const":
-        print_const_table()
-    elif table == "Label":
-        print_label_table()
-    else:
-        print_symb_table()
-        print_var_table()
-        print_const_table()
-        print_label_table()
-    return True
-
-
-def print_symb_table():
-    print("\n Table of symbols")
-    s1 = '{0:<10s} {1:<10s} {2:<10s} {3:<10s} {4:<5s} '
-    s2 = '{0:<10d} {1:<10d} {2:<10s} {3:<10s} {4:<5s} '
-    print(s1.format("numRec", "numLine", "lexeme", "token", "index"))
-    for numRec in symb_table:
-        numLine, lexeme, token, index = symb_table[numRec]
-        print(s2.format(numRec, numLine, lexeme, token, str(index) ))
-
-
-def print_var_table():
-    print("\n Table of identifiers")
-    s1 = '{0:<10s} {1:<15s} {2:<15s} {3:<10s} '
-    print(s1.format("Ident", "Type", "Value", "Index"))
-    s2 = '{0:<10s} {2:<15s} {3:<15s} {1:<10d} '
-    for id in var_table:
-        index, type, val = var_table[id]
-        print(s2.format(id, index, type, str(val)))
-
-
-def print_const_table():
-    print("\n Table of constants")
-    s1 = '{0:<10s} {1:<10s} {2:<10s} {3:<10s} '
-    print(s1.format("Const", "Type", "Value", "Index"))
-    s2 = '{0:<10s} {2:<10s} {3:<10} {1:<10d} '
-    for const in const_table:
-        index, type, val = const_table[const]
-        print(s2.format(str(const), index, type, val))
-
-
-def print_label_table():
-    if len(label_table) == 0:
-        print("\n Table of labels - empty")
-    else:
-        s1 = '{0:<10s} {1:<10s} '
-        print("\n Table of labels")
-        print(s1.format("Label", "Value"))
-        s2 = '{0:<10s} {1:<10d} '
-        for lbl in label_table:
-            val = label_table[lbl]
-            print(s2.format(lbl, val))
+    elif str == 'wrong type':
+        (lex, inpType) = tuple
+        print('\n\nRunTime ERROR: \n\tType of variable is not supported.'
+              '\n\tVariable {0} must be intnum or realnum.'
+              '\n\tEntered type {1}'.format(lex, inpType))
+        exit(114)
+    elif str == 'non recognized label':
+        (lex, inpType) = tuple
+        print('\n\nMGInterpreter ERROR: \n\tYour label {0} is not recognized.'.format(lex, inpType))
+        exit(115)
 
 
 interpreter()

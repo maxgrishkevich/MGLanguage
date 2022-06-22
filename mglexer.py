@@ -1,13 +1,16 @@
-f = open('mgtest1.txt', 'r')
+f = open('mgtest2.txt', 'r')
 source_code = f.read()
 f.close()
+
+to_view = False
+
+fsuccess = (True, 'MGLexer')
 
 source_code += ' '
 
 # table of language lexeme
-table_of_language_tokens = {'mg->': 'keyword', '<-emg': 'keyword', 'int': 'keyword', 'real': 'keyword',
-                            'bool': 'keyword', 'in': 'keyword', 'out': 'keyword', 'while': 'keyword',
-                            'true': 'boolval', 'false': 'boolval',
+table_of_language_tokens = {'mg->': 'keyword', '<-emg': 'keyword', 'in': 'keyword', 'out': 'keyword',
+                            'while': 'keyword',
                             'do': 'keyword', 'if': 'keyword', 'goto': 'keyword', '=': 'assign_op',
                             '.': 'dot', '-': 'add_op', '+': 'add_op', '*': 'mult_op', '/': 'mult_op',
                             '^': 'degree_op', '<': 'rel_op', '<=': 'rel_op', '>=': 'rel_op', '>': 'rel_op',
@@ -16,7 +19,7 @@ table_of_language_tokens = {'mg->': 'keyword', '<-emg': 'keyword', 'int': 'keywo
                             ';': 'punct', ' ': 'ws', '\t': 'ws', '\n': 'eol'}
 
 # rest of lexeme tokens
-table_id_real_int = {2: 'id', 9: 'realnum', 6: 'intnum'}
+table_id_real_int = {2: 'id', 9: 'realnum', 6: 'intnum', 29: 'label'}
 
 # state-transition function
 stf = {  # identifier
@@ -24,6 +27,9 @@ stf = {  # identifier
         # keyword
         (0, 'Letter'): 1, (0, 'e'): 1, (1, 'Letter'): 1, (1, 'e'): 1, (1, '>'): 1, (1, '-'): 1,
         (0, '<'): 11, (11, '-'): 1, (1, 'other'): 18,
+        # label
+        (0, '!'): 26, (26, 'Letter'): 27, (26, 'e'): 27, (27, 'Letter'): 27, (27, 'e'): 27,
+        (27, 'Digit'): 27, (27, 'other'): 29,
         # intnum, realnum
         (0, 'Digit'): 4, (4, 'Digit'): 4, (4, 'e'): 7, (4, 'other'): 6, (4, 'dot'): 5, (5, 'Digit'): 19,
         (19, 'Digit'): 19, (19, 'other'): 9, (5, 'e'): 7, (7, 'AddOp'): 8, (7, '-'): 8, (7, 'Digit'): 8,
@@ -33,17 +39,18 @@ stf = {  # identifier
         (0, 'ws'): 0, (0, 'eol'): 13, (0, 'AddOp'): 14, (0, '-'): 14, (0, 'MultOp'): 14, (0, '^'): 14,
         (0, ','): 14, (0, ';'): 14, (0, 'Brackets'): 14,
         # errors
-        (0, 'other'): 101, (3, 'other'): 102, (5, 'other'): 103, (7, 'other'): 104, (8, 'other'): 105
+        (0, 'other'): 101, (3, 'other'): 102, (5, 'other'): 103, (7, 'other'): 104, (8, 'other'): 105,
+        (26, 'other'): 108
        }
 
 init_state = 0  # 0 - start position
-end_states = {2, 6, 9, 12, 11, 13, 14, 15, 16, 17, 18, 101, 102, 103, 104, 105, 106, 107}  # end positions
-star = {2, 6, 9, 18}  # star
-errors = {101, 102, 103, 104, 105, 107}  # errors factoring
+end_states = {2, 6, 9, 12, 11, 13, 14, 15, 16, 17, 18, 29, 101, 102, 103, 104, 105, 106, 107, 108}  # end positions
+star = {2, 6, 9, 18, 29}  # star
+errors = {101, 102, 103, 104, 105, 107, 108}  # errors factoring
 
 var_table = {}  # table of identifiers
 const_table = {}  # table of constants
-label_table = {} # table of labels
+label_table = {}  # table of labels
 symb_table = {}  # table of symbols
 
 state = init_state  # current position
@@ -56,7 +63,7 @@ lexeme = ''  # current lexeme
 
 
 def lexer():
-    global char, lexeme, state
+    global char, lexeme, state, fsuccess
     try:
         while num_char < len_code:
             char = next_char()
@@ -74,27 +81,36 @@ def lexer():
                 lexeme += char
     except SystemExit as e:
         # notify about error detection
+        fsuccess = (False, 'MGLexer')
         print('\nMGLexer: Exit from program with error code {0}'.format(e))
-        raise
+        exit()
 
-    print('\nMGLexer: Lexical analyse is ended successfully!')
-    print('\nMGLexer: Table of symbols:')
-    print(symb_table)
-    print('\nMGLexer: Table of variables:')
-    print(var_table)
-    print('\nMGLexer: Table of constants:')
-    print(const_table)
+    if to_view:
+        print_tables('All')
+    # print("\033[36m{}".format(""), end="")
+    print('\nMGLexer: Lexical analyse is ended successfully!\n')
+    # print("\033[0m{}".format(""), end="")
+
+    # print('\nMGLexer: Lexical analyse is ended successfully!')
+    # print('\nMGLexer: Table of symbols:')
+    # print(symb_table)
+    # print('\nMGLexer: Table of variables:')
+    # print(var_table)
+    # print('\nMGLexer: Table of constants:')
+    # print(const_table)
+    # print('\nMGLexer: Table of labels:')
+    # print(label_table)
 
 
 def processing():
     global state, lexeme, num_line, num_char  # , char, tableOfSymb
-    if state in (2, 6, 9, 18):  # ident, int float, keyword
+    if state in (2, 6, 9, 18, 29):  # ident, int, float, keyword, label
         token = get_token(state, lexeme)
         if token == 'error':
             state = 107
             fail()
         elif token != 'keyword':  # if not keyword
-            index = index_id_const(state, lexeme, token)
+            index = index_id_const_label(state, lexeme, token)
             # print('{0:<3d} {1:<10s} {2:<10s} {3:<2d} '.format(num_line, lexeme, token, index))
             symb_table[len(symb_table) + 1] = (num_line, lexeme, token, index)
         else:  # if keyword
@@ -155,6 +171,7 @@ def processing():
 
 
 def fail():
+    # print("\033[31m{}".format(""), end="")
     if state == 101:
         print('\nMGLexer ERROR:\n\t[{0}]: Unexpected symbol \'{1}\'.'
               '\n\tSymbol \'{1}\' isn`t exist in MGAlphabet'
@@ -177,11 +194,11 @@ def fail():
         print('\nMGLexer ERROR:\n\t[{0}]: Wrong format of number.'
               '\n\tExpected digit after digit or add operator.'.format(num_line))
         exit(105)
-    if state == 106:
-        print('\nMGLexer ERROR:\n\t[{0}]: Wrong symbol in identifier \'{1}\'.'
-              '\n\tExpected letter or digit. Id length must be >= 2 without @.'
+    if state == 108:
+        print('\nMGLexer ERROR:\n\t[{0}]: Wrong symbol in label \'{1}\'.'
+              '\n\tFirst symbol in label must be a letter.'
               .format(num_line, char))
-        exit(106)
+        exit(108)
     if state == 107:
         print('\nMGLexer ERROR:\n\t[{0}]: Entered lexeme could not recognized \'{1}\'.'
               '\n\tDelete it or fix the error'
@@ -220,7 +237,7 @@ def next_state(current_state, char_class):
 
 
 def class_of_char(current_char):
-    if current_char in "#=<>^,;e-":
+    if current_char in "#=<>^,;e-!":
         res = current_char
     elif current_char in '@':
         res = "dog"
@@ -257,30 +274,95 @@ def get_token(current_state, current_lexeme):
             return 'error'
 
 
-def index_id_const(current_state, current_lexeme, current_token):
+def index_id_const_label(current_state, current_lexeme, current_token):
     index = 0
-    index1 = []
+    # index1 = []
     if current_state == 2:
         index1 = var_table.get(current_lexeme)
         if index1 is None:
             index = len(var_table) + 1
-            var_table[current_lexeme] = index  # ('type_undef', 'val_undef')
+            var_table[current_lexeme] = (index, 'type_undef', 'val_undef')  # ('type_undef', 'val_undef')
+    elif current_state == 29:
+        index1 = label_table.get(current_lexeme)
+        if index1 is None:
+            index = len(label_table) + 1
+            label_table[current_lexeme] = index  # ('type_undef', 'val_undef')
     elif current_state in (6, 9):
         index1 = const_table.get(current_lexeme)
         if index1 is None:
             index = len(const_table) + 1
             val = 0
             if current_state == 9:
-                val = float(lexeme)
+                val = float(current_lexeme)
             elif current_state == 6:
-                val = int(lexeme)
+                val = int(current_lexeme)
             const_table[current_lexeme] = (index, current_token, val)
-    # if not (index1 is None):        #
-    #     if len(index1) == 2:        #
-    #         index, _ = index1       #
-    #     else:                       #
-    #         index, _, _ = index1    #
+        if not (index1 is None):        #
+            if len(index1) == 2:        #
+                index, _ = index1       #
+            else:                       #
+                index, _, _ = index1    #
     return index
 
 
-lexer()
+def print_tables(table):
+    if table == "Symbol":
+        print_symb_table()
+    elif table == "Id":
+        print_id_table()
+    elif table == "Const":
+        print_const_table()
+    elif table == "Label":
+        print_label_table()
+    else:
+        print_symb_table()
+        print_id_table()
+        print_const_table()
+        print_label_table()
+    return True
+
+
+def print_symb_table():
+    print("\n Table of symbols")
+    s1 = '{0:<10s} {1:<10s} {2:<10s} {3:<10s} {4:<5s} '
+    s2 = '{0:<10d} {1:<10d} {2:<10s} {3:<10s} {4:<5s} '
+    print(s1.format("numRec", "numLine", "lexeme", "token", "index"))
+    for numRec in symb_table:
+        numLine, lexeme, token, index = symb_table[numRec]
+        print(s2.format(numRec, numLine, lexeme, token, str(index)))
+
+
+def print_id_table():
+    print("\n Table of identifiers")
+    s1 = '{0:<10s} {1:<15s} {2:<15s} {3:<10s} '
+    print(s1.format("Ident", "Type", "Value", "Index"))
+    s2 = '{0:<10s} {2:<15s} {3:<15s} {1:<10d} '
+    for id in var_table:
+        index, type, val = var_table[id]
+        print(s2.format(id, index, type, str(val)))
+
+
+def print_const_table():
+    print("\n Table of constants")
+    s1 = '{0:<10s} {1:<10s} {2:<10s} {3:<10s} '
+    print(s1.format("Const", "Type", "Value", "Index"))
+    s2 = '{0:<10s} {2:<10s} {3:<10} {1:<10d} '
+    for const in const_table:
+        index, type, val = const_table[const]
+        print(s2.format(str(const), index, type, val))
+
+
+def print_label_table():
+    if len(label_table) == 0:
+        print("\n Table of labels is empty")
+    else:
+        s1 = '{0:<10s} {1:<10s} '
+        print("\n Table of labels")
+        print(s1.format("Label", "Index"))
+        s2 = '{0:<10s} {1:<10d} '
+        for lbl in label_table:
+            val = label_table[lbl]
+            print(s2.format(lbl, val))
+
+
+# lexer()

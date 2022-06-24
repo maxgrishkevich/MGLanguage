@@ -6,7 +6,8 @@ import re
 
 stack = Stack()
 # stack.print()
-to_view = False
+to_interpret = False
+to_view = True
 command_track = []
 next_instr = 0
 
@@ -37,7 +38,7 @@ def interpreter():
                     do_it(lex, tok)
                     next_instr = instr_num + 1
 
-                if to_view:
+                if to_interpret:
                     print_config(instr_num, lex, tok, max_numb)
                 instr_num = next_instr
 
@@ -132,14 +133,15 @@ def do_it(lex, tok):
                 fail('non initialized variable', (lex, var_table[lex]))
             else:
                 val = var_table[lex][2]
-                print(str(val), end="")
+                print('Output ' + lex + ': ', end="")
+                print(str(val))
         else:
-            print(str(const_table[lex][2]), end="")
+            print(str(const_table[lex][2]))
 
     elif tok == 'in':
         (lex, tok) = stack.pop()
 
-        inp = input()
+        inp = input('Input '+lex+': ')
 
         if inp.isdigit():
             inpType = 'integer'

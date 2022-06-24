@@ -21,9 +21,9 @@ table_of_language_tokens = {'mg->': 'keyword', '<-emg': 'keyword', 'in': 'keywor
 # rest of lexeme tokens
 table_id_real_int = {2: 'id', 9: 'realnum', 6: 'intnum', 29: 'label'}
 
-# state-transition function
+# state-transition functionF
 stf = {  # identifier
-        (0, 'dog'): 3, (3, 'Letter'): 10, (10, 'Letter'): 10, (10, 'Digit'): 10, (10, 'e'): 10, (10, 'other'): 2,
+        (0, 'dog'): 3, (3, 'Letter'): 10, (3, 'e'): 10, (10, 'Letter'): 10, (10, 'Digit'): 10, (10, 'e'): 10, (10, 'other'): 2,
         # keyword
         (0, 'Letter'): 1, (0, 'e'): 1, (1, 'Letter'): 1, (1, 'e'): 1, (1, '>'): 1, (1, '-'): 1,
         (0, '<'): 11, (11, '-'): 1, (1, 'other'): 18,
@@ -163,7 +163,7 @@ def processing():
     if state == 12:
         token = get_token(state, lexeme)
         # print('{0:<3d} {1:<10s} {2:<10s} '.format(num_line, lexeme, token))
-        symb_table[len(symb_table) + 1] = (num_line, lexeme, token, '')
+        symb_table[len(symb_table) + 1] = (num_line, '#', 'rel_op', '')
         lexeme = ''
         state = init_state
     if state in errors:  # (101): error

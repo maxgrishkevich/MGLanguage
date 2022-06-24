@@ -1,11 +1,12 @@
 mg->
-    in(@r);
-    if (@r == 3) goto !m1
-    @t = 5;
-    !m1{
-        out(@r);
-    }
+    @a = 5;
+    @b = 8;
     do{
-        @r = @r - 1;
-    }while(@r > 1)
+        out(@a);
+        @a = @a - 1;
+        do{
+            out(@b);
+            @b = @b + 1;
+        }while(@b <= 10)
+    }while(@a > 1)
 <-emg

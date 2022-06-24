@@ -10,8 +10,8 @@ len_symb_table = len(symb_table)
 
 postfix_code = []
 
-view_translation = False
-view_syntax = False
+view_translation = True
+view_syntax = True
 
 
 def parser():
@@ -212,6 +212,36 @@ def parse_label_desc():
         return False
 
 
+# def parse_do_while():
+#     parse_token('do', 'keyword', '')
+#
+#     row_of_program, symbol_name, class_name = get_symb()
+#     m2 = create_label()
+#     postfix_code.append(m2)
+#     postfix_code.append(('JUMP', 'jump'))
+#     row_of_program, symbol_name, class_name = get_symb()
+#     m1 = create_label()
+#     set_label_value(m1)
+#     parse_repeat_statement()
+#     postfix_code.append(m2)
+#     postfix_code.append(('JUMP', 'jump'))
+#     parse_token('while', 'keyword', '')
+#     parse_token('(', 'brackets_op')
+#     set_label_value(m2)
+#     parse_bool_expression()
+#     row_of_program, symbol_name, class_name = get_symb()
+#     m3 = create_label()
+#     postfix_code.append(m3)
+#     postfix_code.append(('JF', 'jf'))
+#     postfix_code.append(m1)
+#     postfix_code.append(('JUMP', 'jump'))
+#     row_of_program, symbol_name, class_name = get_symb()
+#     parse_token(')', 'brackets_op')
+#     set_label_value(m3)
+
+
+
+
 def parse_do_while():
     global num_row
 
@@ -220,29 +250,87 @@ def parse_do_while():
 
     _, lexeme, token = get_symb()
     if (lexeme, token) == ('do', 'keyword'):
-        num_row += 1
+        parse_token('do', 'keyword', '\t' * 5)
+
         parse_token('{', 'brackets_op', '\t' * 5)
+
         m1 = create_label()
-        postfix_code.append(m1)  # Трансляція
-        postfix_code.append(('JF', 'jf'))
-        parse_statement_list('DO')
-        parse_token('}', 'brackets_op', '\t' * 5)
-        set_label_value(m1)  # в табл. міток
-        postfix_code.append(m1)  # Трансляція
+        set_label_value(m1)
+        postfix_code.append(m1)
         postfix_code.append((':', 'colon'))
 
-        _, lexeme, token = get_symb()
+        parse_statement_list('DO')
 
-        if (lexeme, token) == ('while', 'keyword'):
-            parse_token('while', 'keyword', '\t' * 5)
-        else:
-            return False
+        parse_token('}', 'brackets_op', '\t' * 5)
+
+        parse_token('while', 'keyword', '\t' * 5)
+
         parse_token('(', 'brackets_op', '\t' * 5)
+
         parse_bool_expression()
+
+        m2 = create_label()
+        postfix_code.append(m2)
+        postfix_code.append(('JF', 'jf'))
+
+        postfix_code.append(m1)
+        postfix_code.append(('JUMP', 'jump'))
+
         parse_token(')', 'brackets_op', '\t' * 5)
+
+        set_label_value(m2)
+        postfix_code.append(m2)
+        postfix_code.append((':', 'colon'))
         return True
     else:
         return False
+
+
+
+# def parse_do_while():
+#     global num_row
+#
+#     if view_syntax:
+#         print('\t' * 4 + 'parse_do_while():')
+#
+#     _, lexeme, token = get_symb()
+#     if (lexeme, token) == ('do', 'keyword'):
+#         num_row += 1
+#         parse_token('{', 'brackets_op', '\t' * 5)
+#         # m1 = create_label()
+#         # set_label_value(m1)
+#         # postfix_code.append(m1)  # Трансляція
+#         # postfix_code.append(('JF', 'jf'))
+#         parse_statement_list('DO')
+#         parse_token('}', 'brackets_op', '\t' * 5)
+#
+#         _, lexeme, token = get_symb()
+#
+#         # m3 = create_label()  #######################################
+#         # postfix_code.append(m3)
+#         # postfix_code.append(('JF', 'jf'))
+#         if (lexeme, token) == ('while', 'keyword'):
+#             parse_token('while', 'keyword', '\t' * 5)
+#         else:
+#             return False
+#         parse_token('(', 'brackets_op', '\t' * 5)
+#         parse_bool_expression()
+#         parse_token(')', 'brackets_op', '\t' * 5)
+#         # m4 = create_label()  ########################################
+#         # postfix_code.append(m4)
+#         # postfix_code.append(('JF', 'jf'))
+#
+#         # postfix_code.append(m1)
+#         # postfix_code.append(('JUMP', 'jump'))
+#         # set_label_value(m3)  # в табл. міток
+#         # postfix_code.append(m3)
+#         # postfix_code.append((':', 'colon'))
+#         # set_label_value(m4)  # в табл. міток
+#         # postfix_code.append(m4)  # Трансляція
+#         # postfix_code.append((':', 'colon'))
+#         return True
+#     else:
+#         return False
 
 
 def set_label_value(lbl):
@@ -328,18 +416,6 @@ def parse_bool_expression():
         postfix_code.append((lexeme, token))
         if view_syntax:
             print('\t' * 5 + '[{0}]: {1}'.format(num_line, (lexeme, token)))
-
-
-    elif token in 'keyword':
-        if view_syntax:
-            print('\t' * 5 + '[{0}]: {1}'.format(num_line, (lexeme, token)))
-        return True
-
-    # elif (lexeme, token) == (';', 'punct'):
-    #     if view_syntax:
-    #         print('\t' * 5 + '[{0}]: {1}'.format(num_line, (lexeme, token)))
-    #     parse_token(';', 'punct', '')
-    #     return True
 
     else:
         fail_parse('bool expression error', (num_line, lexeme, token, '==, #, <=, >=, <, >'))

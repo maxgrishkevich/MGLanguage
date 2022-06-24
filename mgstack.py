@@ -2,14 +2,14 @@ class Stack:
     def __init__(self):
         self.items = []
 
-    def isEmpty(self):
+    def is_empty(self):
         return self.items == []
 
     def push(self, item):
         self.items.append(item)
 
     def pop(self):
-        if not self.isEmpty():
+        if not self.is_empty():
             return self.items.pop()
         else:
             return False
@@ -21,12 +21,12 @@ class Stack:
         print('STACK:[ {0} '.format(sx))
         return True
 
-    def printTop3(self):
+    def print_top3(self):
         sx = ""
         for x in self.items[-3:]:
             sx += str(x) + '\t'
         if len(self.items) > 3:
-             print('STACK:[ ..., {0} '.format(sx))
+            print('STACK:[ ..., {0} '.format(sx))
         else:
-             print('STACK:[ {0} '.format(sx))
+            print('STACK:[ {0} '.format(sx))
         return True

@@ -89,17 +89,6 @@ def lexer():
         print_tables('All')
     # print("\033[36m{}".format(""), end="")
     print('\nMGLexer: Lexical analyse is ended successfully!\n')
-    # print("\033[0m{}".format(""), end="")
-
-    # print('\nMGLexer: Lexical analyse is ended successfully!')
-    # print('\nMGLexer: Table of symbols:')
-    # print(symb_table)
-    # print('\nMGLexer: Table of variables:')
-    # print(var_table)
-    # print('\nMGLexer: Table of constants:')
-    # print(const_table)
-    # print('\nMGLexer: Table of labels:')
-    # print(label_table)
 
 
 def processing():
@@ -276,7 +265,6 @@ def get_token(current_state, current_lexeme):
 
 def index_id_const_label(current_state, current_lexeme, current_token):
     index = 0
-    # index1 = []
     if current_state == 2:
         index1 = var_table.get(current_lexeme)
         if index1 is None:

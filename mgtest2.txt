@@ -1,9 +1,17 @@
 mg->
+    in(@d);
+    out(@d);
+    if (@d > 1) goto !label
+    !label{
+        @d = @d * 2;
+        out(@d);
+    }
     @a = 5;
-    @b = 8;
     do{
         out(@a);
         @a = @a - 1;
+        @b = 8;
+        @c = 8;
         do{
             out(@b);
             @b = @b + 1;

@@ -7,7 +7,7 @@ import re
 stack = Stack()
 # stack.print()
 to_interpret = False
-to_view = True
+to_view = False
 command_track = []
 next_instr = 0
 
